@@ -4204,10 +4204,10 @@ void Lookup::SendTxnPacketToNodes(const uint32_t oldNumShards,
 
   map<uint32_t, vector<Transaction>> mp;
 
-  if (!GenTxnToSend(NUM_TXN_TO_SEND_PER_ACCOUNT, mp, numShards)) {
+  /*if (!GenTxnToSend(NUM_TXN_TO_SEND_PER_ACCOUNT, mp, numShards)) {
     LOG_GENERAL(WARNING, "GenTxnToSend failed");
     // return;
-  }
+  }*/
 
   if (oldNumShards != newNumShards) {
     auto rectifyFunc = [this, oldNumShards, newNumShards]() mutable -> void {

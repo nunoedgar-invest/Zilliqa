@@ -275,7 +275,7 @@ bool LookupServer::StartCollectorThread() {
           m_mediator.m_lookup->AddToTxnShardMap(tx, 0);
         }
       }
-      // LOG_GENERAL(INFO, "Size of txns " << txns.size());
+      LOG_GENERAL(INFO, "Size of txns " << txns.size());
 
       bool hasTxn = false;
 
