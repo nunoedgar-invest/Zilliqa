@@ -282,7 +282,8 @@ Transaction CreateValidTestingTransaction(PrivKey& fromPrivKey,
   return txn;
 }
 
-bool Lookup::GenTxnToSend(size_t num_txn, vector<Transaction>& txn) {
+bool Lookup::GenTxnToSend(size_t num_txn, vector<Transaction>& shardTxn,
+                          vector<Transaction>& DSTxn) {
   vector<Transaction> txns;
   unsigned int NUM_TXN_TO_DS = num_txn / GENESIS_WALLETS.size();
 
@@ -310,7 +311,7 @@ bool Lookup::GenTxnToSend(size_t num_txn, vector<Transaction>& txn) {
       continue;
     }
 
-    copy(txns.begin(), txns.end(), back_inserter(txn));
+    copy(txns.begin(), txns.end(), back_inserter(shardTxn));
 
     LOG_GENERAL(INFO, "[Batching] Last Nonce sent "
                           << nonce + num_txn << " of Addr " << addr.hex());
@@ -323,9 +324,9 @@ bool Lookup::GenTxnToSend(size_t num_txn, vector<Transaction>& txn) {
       continue;
     }
 
-    copy(txns.begin(), txns.end(), back_inserter(txn));
+    copy(txns.begin(), txns.end(), back_inserter(DSTxn));
   }
-  return !txn.empty();
+  return !(shardTxn.empty() || DSTxn.empty());
 }
 
 bool Lookup::GenTxnToSend(size_t num_txn,
