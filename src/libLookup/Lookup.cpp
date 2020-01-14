@@ -4079,8 +4079,9 @@ bool Lookup::AddToTxnShardMap(const Transaction& tx, uint32_t shardId,
   }
 
   txnShardMap[shardId].push_back(tx);
-  LOG_GENERAL(INFO,
-              "Added Txn " << tx.GetTranID().hex() << " to shard " << shardId);
+  LOG_GENERAL(INFO, "Added Txn " << tx.GetTranID().hex() << " to shard "
+                                 << shardId << " of fromAddr "
+                                 << tx.GetSenderAddr());
 
   return true;
 }

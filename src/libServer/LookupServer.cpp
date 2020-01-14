@@ -283,7 +283,7 @@ bool LookupServer::StartCollectorThread() {
       if (!txnsDS.empty()) {
         for (const auto& tx : txnsDS) {
           m_mediator.m_lookup->AddToTxnShardMap(tx,
-                                                SEND_TYPE::ARCHIVAL_SEND_SHARD);
+                                                SEND_TYPE::ARCHIVAL_SEND_DS);
         }
       }
       LOG_GENERAL(INFO, "Size of txns to DS" << txnsDS.size());
