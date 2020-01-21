@@ -4420,9 +4420,6 @@ bool Lookup::ProcessForwardTxn(const bytes& message, unsigned int offset,
       for (const auto& txn : txnsShard) {
         unsigned int shard = txn.GetShardIndex(shard_size);
         AddToTxnShardMap(txn, shard);
-        for (const auto& txn : txnsDS) {
-          AddToTxnShardMap(txn, shard_size);
-        }
       }
     } else {
       LOG_GENERAL(INFO, "Sending all contracts to DS committee");
@@ -4438,6 +4435,8 @@ bool Lookup::ProcessForwardTxn(const bytes& message, unsigned int offset,
         }
       }
     }
+
+    LOG_GENERAL(INFO, "Size of DS txns " << txnsDS.size());
 
     for (const auto& txn : txnsDS) {
       AddToTxnShardMap(txn, shard_size);
