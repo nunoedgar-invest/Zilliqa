@@ -320,6 +320,8 @@ void Node::ProcessTransactionWhenShardLeader(
 
   vector<Transaction> gasLimitExceededTxnBuffer;
 
+  AccountStore::GetInstance().CleanStorageRootUpdateBufferTemp();
+
   while (m_gasUsedTotal < microblock_gas_limit) {
     if (txnProcTimeout) {
       break;
@@ -402,30 +404,36 @@ void Node::ProcessTransactionWhenShardLeader(
         //                 << " Found " << t.GetNonce());
       }
       // if nonce correct, process it
-      else if (m_mediator.m_validator->CheckCreatedTransaction(t, tr)) {
-        if (!SafeMath<uint64_t>::add(m_gasUsedTotal, tr.GetCumGas(),
-                                     m_gasUsedTotal)) {
-          LOG_GENERAL(WARNING, "m_gasUsedTotal addition unsafe!");
-          break;
-        }
-        uint128_t txnFee;
-        if (!SafeMath<uint128_t>::mul(tr.GetCumGas(), t.GetGasPrice(),
-                                      txnFee)) {
-          LOG_GENERAL(WARNING, "txnFee multiplication unsafe!");
+      else {
+        if (m_gasUsedTotal + t.GetGasLimit() > microblock_gas_limit) {
+          gasLimitExceededTxnBuffer.emplace_back(t);
           continue;
         }
-        if (!SafeMath<uint128_t>::add(m_txnFees, txnFee, m_txnFees)) {
-          LOG_GENERAL(WARNING, "m_txnFees addition unsafe!");
-          break;
+        if (m_mediator.m_validator->CheckCreatedTransaction(t, tr)) {
+          if (!SafeMath<uint64_t>::add(m_gasUsedTotal, tr.GetCumGas(),
+                                       m_gasUsedTotal)) {
+            LOG_GENERAL(WARNING, "m_gasUsedTotal addition unsafe!");
+            break;
+          }
+          uint128_t txnFee;
+          if (!SafeMath<uint128_t>::mul(tr.GetCumGas(), t.GetGasPrice(),
+                                        txnFee)) {
+            LOG_GENERAL(WARNING, "txnFee multiplication unsafe!");
+            continue;
+          }
+          if (!SafeMath<uint128_t>::add(m_txnFees, txnFee, m_txnFees)) {
+            LOG_GENERAL(WARNING, "m_txnFees addition unsafe!");
+            break;
+          }
+          appendOne(t, tr);
         }
-        appendOne(t, tr);
-      } else {
-        // LOG_GENERAL(WARNING, "CheckCreatedTransaction failed");
       }
     } else {
       break;
     }
   }
+
+  AccountStore::GetInstance().ProcessStorageRootUpdateBufferTemp();
 
   cv_TxnProcFinished.notify_all();
   PutTxnsInTempDataBase(t_processedTransactions);
@@ -559,6 +567,8 @@ void Node::ProcessTransactionWhenShardBackup(
 
   vector<Transaction> gasLimitExceededTxnBuffer;
 
+  AccountStore::GetInstance().CleanStorageRootUpdateBufferTemp();
+
   while (m_gasUsedTotal < microblock_gas_limit) {
     if (txnProcTimeout) {
       break;
@@ -626,28 +636,37 @@ void Node::ProcessTransactionWhenShardBackup(
                AccountStore::GetInstance().GetNonceTemp(senderAddr) + 1) {
       }
       // if nonce correct, process it
-      else if (m_mediator.m_validator->CheckCreatedTransaction(t, tr)) {
-        if (!SafeMath<uint64_t>::add(m_gasUsedTotal, tr.GetCumGas(),
-                                     m_gasUsedTotal)) {
-          LOG_GENERAL(WARNING, "m_gasUsedTotal addition overflow!");
-          break;
-        }
-        uint128_t txnFee;
-        if (!SafeMath<uint128_t>::mul(tr.GetCumGas(), t.GetGasPrice(),
-                                      txnFee)) {
-          LOG_GENERAL(WARNING, "txnFee multiplication overflow!");
+      else {
+        if (m_gasUsedTotal + t.GetGasLimit() > microblock_gas_limit) {
+          gasLimitExceededTxnBuffer.emplace_back(t);
           continue;
         }
-        if (!SafeMath<uint128_t>::add(m_txnFees, txnFee, m_txnFees)) {
-          LOG_GENERAL(WARNING, "m_txnFees addition overflow!");
-          break;
+
+        if (m_mediator.m_validator->CheckCreatedTransaction(t, tr)) {
+          if (!SafeMath<uint64_t>::add(m_gasUsedTotal, tr.GetCumGas(),
+                                       m_gasUsedTotal)) {
+            LOG_GENERAL(WARNING, "m_gasUsedTotal addition overflow!");
+            break;
+          }
+          uint128_t txnFee;
+          if (!SafeMath<uint128_t>::mul(tr.GetCumGas(), t.GetGasPrice(),
+                                        txnFee)) {
+            LOG_GENERAL(WARNING, "txnFee multiplication overflow!");
+            continue;
+          }
+          if (!SafeMath<uint128_t>::add(m_txnFees, txnFee, m_txnFees)) {
+            LOG_GENERAL(WARNING, "m_txnFees addition overflow!");
+            break;
+          }
+          appendOne(t, tr);
         }
-        appendOne(t, tr);
       }
     } else {
       break;
     }
   }
+
+  AccountStore::GetInstance().ProcessStorageRootUpdateBufferTemp();
 
   cv_TxnProcFinished.notify_all();
 
@@ -729,9 +748,23 @@ void Node::ReinstateMemPool(
 
   for (const auto& t : gasLimitExceededTxnBuffer) {
     t_createdTxns.insert(t);
+    LOG_GENERAL(INFO, "PendingAPI " << t.GetTranID());
     m_unconfirmedTxns.emplace(t.GetTranID(),
                               PoolTxnStatus::PRESENT_GAS_EXCEEDED);
   }
+}
+
+void Node::PutProcessedInUnconfirmedTxns() {
+  unique_lock<shared_timed_mutex> g(m_unconfirmedTxnsMutex);
+
+  uint count = 0;
+
+  for (const auto& t : t_processedTransactions) {
+    m_unconfirmedTxns.emplace(
+        t.first, PoolTxnStatus::PRESENT_VALID_CONSENSUS_NOT_REACHED);
+    count++;
+  }
+  LOG_GENERAL(INFO, "Count of txns " << count);
 }
 
 PoolTxnStatus Node::IsTxnInMemPool(const TxnHash& txhash) const {
@@ -745,6 +778,18 @@ PoolTxnStatus Node::IsTxnInMemPool(const TxnHash& txhash) const {
     return PoolTxnStatus::NOT_PRESENT;
   }
   return res->second;
+}
+
+unordered_map<TxnHash, PoolTxnStatus> Node::GetUnconfirmedTxns() const {
+  shared_lock<shared_timed_mutex> g(m_unconfirmedTxnsMutex);
+
+  return m_unconfirmedTxns;
+}
+
+bool Node::IsUnconfirmedTxnEmpty() const {
+  shared_lock<shared_timed_mutex> g(m_unconfirmedTxnsMutex);
+
+  return m_unconfirmedTxns.empty();
 }
 
 void Node::UpdateBalanceForPreGeneratedAccounts() {
@@ -786,7 +831,7 @@ bool Node::RunConsensusOnMicroBlockWhenShardLeader() {
   m_txn_distribute_window_open = false;
 
   if (m_mediator.ToProcessTransaction()) {
-    ProcessTransactionWhenShardLeader();
+    ProcessTransactionWhenShardLeader(SHARD_MICROBLOCK_GAS_LIMIT);
     if (!AccountStore::GetInstance().SerializeDelta()) {
       LOG_GENERAL(WARNING, "AccountStore::SerializeDelta failed");
       return false;
@@ -794,7 +839,7 @@ bool Node::RunConsensusOnMicroBlockWhenShardLeader() {
   }
 
   // composed microblock stored in m_microblock
-  if (!ComposeMicroBlock()) {
+  if (!ComposeMicroBlock(SHARD_MICROBLOCK_GAS_LIMIT)) {
     LOG_GENERAL(WARNING, "Unable to create microblock");
     return false;
   }
@@ -884,7 +929,7 @@ bool Node::RunConsensusOnMicroBlockWhenShardBackup() {
        m_mediator.m_dsBlockChain.GetLastBlock().GetHeader().GetBlockNum() >=
            TXN_DS_TARGET_NUM)) {
     std::this_thread::sleep_for(chrono::milliseconds(TX_DISTRIBUTE_TIME_IN_MS));
-    ProcessTransactionWhenShardBackup();
+    ProcessTransactionWhenShardBackup(SHARD_MICROBLOCK_GAS_LIMIT);
   }
 
   LOG_EPOCH(INFO, m_mediator.m_currentEpochNum,
@@ -1372,7 +1417,7 @@ bool Node::MicroBlockValidator(const bytes& message, unsigned int offset,
     return false;
   }
 
-  if (!CheckMicroBlockValidity(errorMsg)) {
+  if (!CheckMicroBlockValidity(errorMsg, SHARD_MICROBLOCK_GAS_LIMIT)) {
     m_microblock = nullptr;
     LOG_GENERAL(WARNING, "CheckMicroBlockValidity failed");
     return false;

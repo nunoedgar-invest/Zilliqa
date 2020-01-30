@@ -57,6 +57,17 @@ class StatusServer : public Server,
     (void)request;
     response = this->GetDSCommittee();
   }
+  inline virtual void ToggleSendSCCallsToDSI(const Json::Value& request,
+                                             Json::Value& response) {
+    (void)request;
+    response = this->ToggleSendSCCallsToDS();
+  }
+  inline virtual void GetSendSCCallsToDSI(const Json::Value& request,
+                                          Json::Value& response) {
+    (void)request;
+    response = this->GetSendSCCallsToDS();
+  }
+
   Json::Value IsTxnInMemPool(const std::string& tranID);
   bool AddToBlacklistExclusion(const std::string& ipAddr);
   bool RemoveFromBlacklistExclusion(const std::string& ipAddr);
@@ -64,6 +75,8 @@ class StatusServer : public Server,
   std::string GetLatestEpochStatesUpdated();
   std::string GetEpochFin();
   Json::Value GetDSCommittee();
+  bool ToggleSendSCCallsToDS();
+  bool GetSendSCCallsToDS();
 };
 
 #endif  // ZILLIQA_SRC_LIBSERVER_STATUSSERVER_H_

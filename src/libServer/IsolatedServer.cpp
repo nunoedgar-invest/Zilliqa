@@ -95,6 +95,70 @@ IsolatedServer::IsolatedServer(Mediator& mediator,
   ;
 }
 
+bool IsolatedServer::ValidateTxn(const Transaction& tx, const Address& fromAddr,
+                                 const Account* sender,
+                                 const uint128_t& gasPrice) {
+  if (DataConversion::UnpackA(tx.GetVersion()) != CHAIN_ID) {
+    throw JsonRpcException(ServerBase::RPC_VERIFY_REJECTED,
+                           "CHAIN_ID incorrect");
+  }
+
+  if (tx.GetCode().size() > MAX_CODE_SIZE_IN_BYTES) {
+    throw JsonRpcException(ServerBase::RPC_VERIFY_REJECTED,
+                           "Code size is too large");
+  }
+
+  if (tx.GetGasPrice() < gasPrice) {
+    throw JsonRpcException(ServerBase::RPC_VERIFY_REJECTED,
+                           "GasPrice " + tx.GetGasPrice().convert_to<string>() +
+                               " lower than minimum allowable " +
+                               gasPrice.convert_to<string>());
+  }
+  if (!Validator::VerifyTransaction(tx)) {
+    throw JsonRpcException(ServerBase::RPC_VERIFY_REJECTED,
+                           "Unable to verify transaction");
+  }
+
+  if (IsNullAddress(fromAddr)) {
+    throw JsonRpcException(ServerBase::RPC_INVALID_ADDRESS_OR_KEY,
+                           "Invalid address for issuing transactions");
+  }
+
+  if (sender == nullptr) {
+    throw JsonRpcException(ServerBase::RPC_INVALID_ADDRESS_OR_KEY,
+                           "The sender of the txn has no balance");
+  }
+  const auto type = Transaction::GetTransactionType(tx);
+
+  if (type == Transaction::ContractType::CONTRACT_CALL &&
+      (tx.GetGasLimit() <
+       max(CONTRACT_INVOKE_GAS, (unsigned int)(tx.GetData().size())))) {
+    throw JsonRpcException(ServerBase::RPC_INVALID_PARAMETER,
+                           "Gas limit (" + to_string(tx.GetGasLimit()) +
+                               ") lower than minimum for invoking contract (" +
+                               to_string(CONTRACT_INVOKE_GAS) + ")");
+  }
+
+  else if (type == Transaction::ContractType::CONTRACT_CREATION &&
+           (tx.GetGasLimit() <
+            max(CONTRACT_CREATE_GAS,
+                (unsigned int)(tx.GetCode().size() + tx.GetData().size())))) {
+    throw JsonRpcException(ServerBase::RPC_INVALID_PARAMETER,
+                           "Gas limit (" + to_string(tx.GetGasLimit()) +
+                               ") lower than minimum for creating contract (" +
+                               to_string(CONTRACT_CREATE_GAS) + ")");
+  }
+
+  if (sender->GetNonce() >= tx.GetNonce()) {
+    throw JsonRpcException(ServerBase::RPC_INVALID_PARAMETER,
+                           "Nonce (" + to_string(tx.GetNonce()) +
+                               ") lower than current (" +
+                               to_string(sender->GetNonce()) + ")");
+  }
+
+  return true;
+}
+
 Json::Value IsolatedServer::CreateTransaction(const Json::Value& _json) {
   try {
     if (!JSONConversion::checkJsonTx(_json)) {
@@ -110,7 +174,7 @@ Json::Value IsolatedServer::CreateTransaction(const Json::Value& _json) {
     const Address fromAddr = tx.GetSenderAddr();
     const Account* sender = AccountStore::GetInstance().GetAccount(fromAddr);
 
-    if (!ValidateTxn(tx, fromAddr, sender)) {
+    if (!ValidateTxn(tx, fromAddr, sender, m_gasPrice)) {
       return ret;
     }
 

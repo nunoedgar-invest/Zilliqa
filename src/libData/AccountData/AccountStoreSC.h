@@ -52,10 +52,10 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   /// the txn is successful
   std::unique_ptr<AccountStoreAtomic<MAP>> m_accountStoreAtomic;
 
+  /// mutex to block major accounts changes
   std::mutex m_mutexUpdateAccounts;
 
   /// the blocknum while executing each txn
-
   uint64_t m_curBlockNum{0};
 
   /// the current contract address for each hop of invoking
@@ -84,7 +84,7 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   std::string m_root_w_version;
 
   /// the depth of chain call while executing the current txn
-  unsigned int m_curDepth{0};
+  unsigned int m_curEdges{0};
 
   /// for contract execution timeout
   std::mutex m_MutexCVCallContract;
@@ -93,6 +93,14 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
 
   /// scilla IPC server
   std::shared_ptr<ScillaIPCServer> m_scillaIPCServer;
+
+  /// A set of contract account address pending for storageroot updating
+  std::set<Address> m_storageRootUpdateBuffer;
+
+  /// A set of contract account address pending for storageroot updating
+  /// for each transaction, will be added to the non-atomic one once
+  /// the transaction succeeded
+  std::set<Address> m_storageRootUpdateBufferAtomic;
 
   /// Contract Deployment
   /// verify the return from scilla_runner for deployment is valid
@@ -111,7 +119,7 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   /// Contract Calling
   /// verify the return from scilla_runner for calling is valid
   bool ParseCallContract(uint64_t& gasRemained, const std::string& runnerPrint,
-                         TransactionReceipt& receipt);
+                         TransactionReceipt& receipt, uint32_t tree_depth);
   /// convert the interpreter output into parsable json object for calling
   bool ParseCallContractOutput(Json::Value& jsonOutput,
                                const std::string& runnerPrint,
@@ -119,7 +127,8 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   /// parse the output from interpreter for calling and update states
   bool ParseCallContractJsonOutput(const Json::Value& _json,
                                    uint64_t& gasRemained,
-                                   TransactionReceipt& receipt);
+                                   TransactionReceipt& receipt,
+                                   uint32_t tree_depth);
 
   /// Utility functions
   /// get the json format file for the current blocknum
@@ -175,8 +184,7 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   /// expose in protected for using by data migration
   bool ParseContractCheckerOutput(const std::string& checkerPrint,
                                   TransactionReceipt& receipt,
-                                  bytes& map_depth_datam,
-                                  uint64_t& gasRemained);
+                                  bytes& map_depth_data, uint64_t& gasRemained);
 
   /// external interface for processing txn
   bool UpdateAccounts(const uint64_t& blockNum, const unsigned int& numShards,
@@ -190,8 +198,16 @@ class AccountStoreSC : public AccountStoreBase<MAP> {
   /// external interface for calling timeout for txn processing
   void NotifyTimeout();
 
+  /// public interface to setup scilla ipc server
   virtual void SetScillaIPCServer(
       std::shared_ptr<ScillaIPCServer> scillaIPCServer);
+
+  /// public interface to invoke processing of the buffered storage root
+  /// updating tasks
+  void ProcessStorageRootUpdateBuffer();
+
+  /// public interface to clean StorageRootUpdateBuffer
+  void CleanStorageRootUpdateBuffer();
 };
 
 #include "AccountStoreAtomic.tpp"

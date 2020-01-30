@@ -38,13 +38,9 @@ const unsigned int UINT128_SIZE = 16;
 const unsigned int INT256_SIZE = 32;
 
 // Cryptographic sizes
-const unsigned int PRIV_KEY_SIZE = 32;
 const unsigned int PUB_KEY_SIZE = 33;
 const unsigned int SIGNATURE_CHALLENGE_SIZE = 32;
 const unsigned int SIGNATURE_RESPONSE_SIZE = 32;
-const unsigned int COMMIT_SECRET_SIZE = 32;
-const unsigned int COMMIT_POINT_HASH_SIZE = 32;
-const unsigned int COMMIT_POINT_SIZE = 33;
 const unsigned int CHALLENGE_SIZE = 32;
 const unsigned int RESPONSE_SIZE = 32;
 
@@ -91,7 +87,7 @@ enum SyncType : unsigned int {
   RECOVERY_ALL_SYNC,
   NEW_LOOKUP_SYNC,
   GUARD_DS_SYNC,
-  DB_VERIF,
+  DB_VERIF,  // Deprecated
   SYNC_TYPE_COUNT
 };
 
@@ -173,6 +169,7 @@ extern const unsigned int NUM_NODES_TO_SEND_LOOKUP;
 extern const unsigned int NUM_OF_TREEBASED_CHILD_CLUSTERS;
 extern const unsigned int POW_PACKET_SENDERS;
 extern const unsigned int TX_SHARING_CLUSTER_SIZE;
+extern const unsigned int NUM_SHARE_PENDING_TXNS;
 
 // Dispatcher constants
 extern const bool USE_REMOTE_TXN_CREATOR;
@@ -191,12 +188,13 @@ extern const unsigned int POWPACKETSUBMISSION_WINDOW_IN_SECONDS;
 extern const unsigned int RECOVERY_SYNC_TIMEOUT;
 extern const unsigned int TX_DISTRIBUTE_TIME_IN_MS;
 extern const unsigned int NEW_LOOKUP_SYNC_DELAY_IN_SECONDS;
-extern const unsigned int NEW_LOOKUP_GETSHARD_TIMEOUT_IN_SECONDS;
+extern const unsigned int GETSHARD_TIMEOUT_IN_SECONDS;
 extern const unsigned int GETSTATEDELTAS_TIMEOUT_IN_SECONDS;
 extern const unsigned int RETRY_REJOINING_TIMEOUT;
 extern const unsigned int RETRY_GETSTATEDELTAS_COUNT;
 extern const unsigned int MAX_FETCHMISSINGMBS_NUM;
 extern const unsigned int LAST_N_TXBLKS_TOCHECK_FOR_MISSINGMBS;
+extern const unsigned int REMOVENODEFROMBLACKLIST_DELAY_IN_SECONDS;
 
 // Fallback constants
 extern const bool ENABLE_FALLBACK;
@@ -206,7 +204,8 @@ extern const unsigned int FALLBACK_INTERVAL_STARTED;
 extern const unsigned int FALLBACK_INTERVAL_WAITING;
 
 // Gas constants
-extern const unsigned int MICROBLOCK_GAS_LIMIT;
+extern const unsigned int DS_MICROBLOCK_GAS_LIMIT;
+extern const unsigned int SHARD_MICROBLOCK_GAS_LIMIT;
 extern const unsigned int CONTRACT_CREATE_GAS;
 extern const unsigned int CONTRACT_INVOKE_GAS;
 extern const unsigned int NORMAL_TRAN_GAS;
@@ -265,6 +264,8 @@ extern const std::string IP_TO_BIND;  // Only for non-lookup nodes
 extern const bool ENABLE_STATUS_RPC;  //
 extern const unsigned int NUM_SHARD_PEER_TO_REVEAL;
 extern const std::string SCILLA_IPC_SOCKET_PATH;
+extern bool ENABLE_WEBSOCKET;
+extern const unsigned int WEBSOCKET_PORT;
 
 // Network composition constants
 extern const unsigned int COMM_SIZE;
@@ -286,9 +287,9 @@ extern const unsigned int SENDQUEUE_SIZE;
 extern const unsigned int MAX_GOSSIP_MSG_SIZE_IN_BYTES;
 extern const unsigned int MIN_READ_WATERMARK_IN_BYTES;
 extern const unsigned int MAX_READ_WATERMARK_IN_BYTES;
-extern const unsigned int CONNECTION_TIMEOUT_IN_SECONDS;
 extern const unsigned int BLACKLIST_NUM_TO_POP;
 extern const unsigned int MAX_PEER_CONNECTION;
+extern const unsigned int MAX_WHITELISTREQ_LIMIT;
 
 // PoW constants
 extern const bool CUDA_GPU_MINE;
@@ -369,7 +370,9 @@ extern const uint128_t TOTAL_GENESIS_TOKEN;
 extern const unsigned int BASE_REWARD_IN_PERCENT;
 extern const unsigned int LOOKUP_REWARD_IN_PERCENT;
 extern const unsigned int MAX_CODE_SIZE_IN_BYTES;
-extern const unsigned int MAX_CONTRACT_DEPTH;
+extern const unsigned int MAX_CONTRACT_EDGES;
+extern const unsigned int SCILLA_CHECKER_INVOKE_GAS;
+extern const unsigned int SCILLA_RUNNER_INVOKE_GAS;
 extern const unsigned int SYS_TIMESTAMP_VARIANCE_IN_SECONDS;
 extern const unsigned int TXN_MISORDER_TOLERANCE_IN_PERCENT;
 extern const unsigned int PACKET_EPOCH_LATE_ALLOW;

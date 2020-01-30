@@ -43,7 +43,13 @@ endif()
 include(InstallG3log)
 find_package(g3logger CONFIG REQUIRED)
 
-find_package(Boost COMPONENTS filesystem system unit_test_framework program_options REQUIRED)
+include(InstallWebsocketpp)
+find_package(websocketpp CONFIG REQUIRED)
+
+include(InstallSchnorr)
+include_directories(${SCHNORR_INCLUDE_DIR}/include)
+
+find_package(Boost COMPONENTS filesystem system unit_test_framework program_options python-py35 REQUIRED)
 
 find_program(HOMEBREW NAMES brew PATH /usr/local/bin)
 
@@ -196,6 +202,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src/depends/libethash/include/)
 
 include_directories(${G3LOG_INCLUDE_DIR})
 
+include_directories(${WEBSOCKETPP_INCLUDE_DIR})
+
 # export compile commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -240,6 +248,23 @@ if (ADDRESS_SANITIZER)
     message(STATUS "ADDRESS SANITIZER enabled")
 endif()
 
+if (UNDEF_BEHAVIOR_SANITIZER)
+    add_compile_options(-fsanitize=undefined)
+    link_libraries(-fsanitize=undefined)
+    message(STATUS "UNDEFINED BEHAVIOR SANITIZER enabled")
+endif()
+
+if (LIBFUZZER_SANITIZER)
+    include(CodeCoverage)
+    link_libraries(--coverage)
+    link_libraries(-lgcov)
+    add_compile_options(-fsanitize=fuzzer,address,undefined)
+    add_compile_options(-fno-omit-frame-pointer)
+    link_libraries(-fsanitize=fuzzer,address,undefined)
+    message(STATUS "Libfuzzer with address and undefined behavior sanitizer enabled")
+endif()
+
+
 if (ENABLE_COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
     if (NOT TESTS)
         message(FATAL_ERROR "TESTS is not ON")
@@ -261,8 +286,7 @@ if(TESTS)
 endif()
 
 # installation
-set_target_properties(zilliqa sendcmd genkeypair getpub getaddr gentxn signmultisig verifymultisig ZilliqaDaemon_AWS gensigninitialds grepperf getnetworkhistory getrewardhistory validateDB restore genTxnBodiesFromS3 isolatedServer
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(zilliqa sendcmd genkeypair getpub getaddr gentxn signmultisig verifymultisig  gensigninitialds grepperf getnetworkhistory getrewardhistory validateDB restore genTxnBodiesFromS3 isolatedServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set_target_properties(Common Trie ethash NAT
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

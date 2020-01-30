@@ -24,6 +24,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 
+#include <Schnorr.h>
 #include "Account.h"
 #include "AccountStoreSC.h"
 #include "AccountStoreTrie.h"
@@ -35,7 +36,6 @@
 #include "depends/libDatabase/MemoryDB.h"
 #include "depends/libDatabase/OverlayDB.h"
 #include "depends/libTrie/TrieDB.h"
-#include "libCrypto/Schnorr.h"
 #include "libData/AccountData/Transaction.h"
 #include "libServer/ScillaIPCServer.h"
 
@@ -132,8 +132,11 @@ class AccountStore
   /// Reset the reference to underlying leveldb
   bool RefreshDB();
 
+  /// Use the states in Temp State DB to refresh the state merkle trie
   bool UpdateStateTrieFromTempStateDB();
 
+  /// Clean, and use the states in either memory or temp state db to
+  /// update the state merkle trie
   bool RepopulateStateTrie(bool retrieveFromTrie = true);
 
   /// commit the in-memory states into persistent storage
@@ -144,6 +147,7 @@ class AccountStore
   /// repopulate the in-memory data structures from persistent storage
   bool RetrieveFromDisk();
 
+  /// Get the instance of an account from AccountStoreTemp
   Account* GetAccountTemp(const Address& address);
 
   /// update account states in AccountStoreTemp
@@ -165,9 +169,20 @@ class AccountStore
   /// get the nonce of an account in AccountStoreTemp
   uint128_t GetNonceTemp(const Address& address);
 
+  /// Update the states balance due to coinbase changes to the AccountStoreTemp
   bool UpdateCoinbaseTemp(const Address& rewardee,
                           const Address& genesisAddress,
                           const uint128_t& amount);
+
+  /// Call ProcessStorageRootUpdateBuffer in AccountStoreTemp
+  void ProcessStorageRootUpdateBufferTemp() {
+    m_accountStoreTemp->ProcessStorageRootUpdateBuffer();
+  }
+
+  /// Call ProcessStorageRootUpdateBuffer in AccountStoreTemp
+  void CleanStorageRootUpdateBufferTemp() {
+    m_accountStoreTemp->CleanStorageRootUpdateBuffer();
+  }
 
   /// used in deserialization
   void AddAccountDuringDeserialization(const Address& address,
@@ -205,11 +220,6 @@ class AccountStore
 
   /// clean the data for revert the AccountStore
   void InitRevertibles();
-
-  /// Migrate the old contract states into the new one
-  bool MigrateContractStates(bool ignoreCheckerFailure,
-                             const std::string& contract_address_output_dir,
-                             const std::string& normal_address_output_dir);
 };
 
 #endif  // ZILLIQA_SRC_LIBDATA_ACCOUNTDATA_ACCOUNTSTORE_H_

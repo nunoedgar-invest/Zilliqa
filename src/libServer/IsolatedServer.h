@@ -55,6 +55,8 @@ class IsolatedServer : public LookupServer,
   std::string SetMinimumGasPrice(const std::string& gasPrice);
   Json::Value CreateTransaction(const Json::Value& _json);
   std::string IncreaseBlocknum(const uint32_t& delta);
+  bool ValidateTxn(const Transaction& tx, const Address& fromAddr,
+                   const Account* sender, const uint128_t& gasPrice);
 };
 
 #endif  // ZILLIQA_SRC_LIBSERVER_ISOLATEDSERVER_H_
